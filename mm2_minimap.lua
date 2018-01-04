@@ -15,6 +15,13 @@ NUM_SPRITES = 32
 SCREEN_WIDTH = 256
 MINI_TILE_SIZE = 3
 PLAYING = 178
+BOSS_RUSH = 100
+LAGGING = 171
+HEALTH_REFILL = 119
+PAUSED = 128
+DEAD = 156
+MENU = 197
+READY = 82
 
 -- RAM ADDRESSES
 SCROLL_X = 0x001F
@@ -93,9 +100,13 @@ function getMap(stage, screen)
 	local map2 = getScreenMap(stage, screen)
 	local map3 = getScreenMap(stage, screen + 1)
 	local mmx = memory.readbyte(MEGAMAN_X)
+	local mmy = memory.readbyte(MEGAMAN_Y)
 	local scrollx = memory.readbyte(SCROLL_X)
 	local mmtilex = math.floor(mmx / TILE_SIZE)
+	local mmtiley = math.floor(mmy / TILE_SIZE)
 	local size1 = NUM_COLS/2 - mmtilex
+	--emu.message(string.format("%02X",getBlockAt(stage, screen, mmtilex*1, (mmtiley-1)*1)))
+	gui.text(0,8,string.format("pos:%02X, %02X\nblock: %02X",mmtilex, mmtiley, getBlockAt(stage, screen, mmtilex/2, (mmtiley)/2 + 1)))
 	if scrollx == 0 then
 		return map2
 	end
@@ -122,11 +133,17 @@ function getMap(stage, screen)
 	return map
 end
 
+function validState()
+	local state = memory.readbyte(GAME_STATE)
+	return state==PLAYING or state==BOSS_RUSH or state==LAGGING or state==HEALTH_REFILL
+end
+
 function minimap()
-	if memory.readbyte(GAME_STATE) ~= PLAYING then
-		return
-	end
+	if not validState() then return end --originally was if not validState then blah end. It worked fine without parentheses???
 	local current_stage = memory.readbyte(CURRENT_STAGE)
+	if current_stage >= 8 then
+		current_stage = current_stage - 8
+	end
 	local current_screen = memory.readbyte(CURRENT_SCREEN)
 	local map = getMap(current_stage, current_screen)
 	local map_left = SCREEN_WIDTH - NUM_COLS * MINI_TILE_SIZE - 2 * MINI_TILE_SIZE
@@ -145,6 +162,7 @@ function minimap()
 			if isLadder(map[i][j]) then
 				color = "#00FF00CC"
 			end
+			--To turn this from minimap into full-size map, this line is literally all we need to change.
 			gui.drawbox(map_left + j * MINI_TILE_SIZE, map_top + i * MINI_TILE_SIZE, map_left + j * MINI_TILE_SIZE + MINI_TILE_SIZE,  map_top + i * MINI_TILE_SIZE + MINI_TILE_SIZE, color, color)
 		end
 	end
