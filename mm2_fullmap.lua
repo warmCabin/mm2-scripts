@@ -17,6 +17,7 @@ MINI_TILE_SIZE = 16
 PLAYING = 178
 BOSS_RUSH = 100
 LAGGING = 171
+LAGGING2 = 149
 HEALTH_REFILL = 119
 PAUSED = 128
 DEAD = 156
@@ -39,6 +40,11 @@ TSA_PROPERTIES_START = 0x10
 TSA_PROPERTIES_SIZE = 0x500
 MAP_START = 0x510
 MAP_SIZE = 0x4000
+
+-- SCRIPT CONFIG
+WALL_COLOR = "#0000FF77"
+FATAL_COLOR = "#FF000077"
+LADDER_COLOR = "#00FF0077"
 
 function getBlockAt(stage, screen, x, y)
 	local stage_start = stage * MAP_SIZE + MAP_START
@@ -95,21 +101,19 @@ function getScreenMap(stage, screen)
 	return map
 end
 
+local current_scroll_x = memory.readbyte(SCROLL_X)
+local previous_scroll_x = current_scroll_x
+
+-- TODO: Why is Mega Man's position used here at all? Just get 2 screens of map and offset it.
 function getMap(stage, screen)
 	local map1 = getScreenMap(stage, screen - 1)
 	local map2 = getScreenMap(stage, screen)
 	local map3 = getScreenMap(stage, screen + 1)
-	local mmx = memory.readbyte(MEGAMAN_X)
-	local mmy = memory.readbyte(MEGAMAN_Y)
-	local scrollx = memory.readbyte(SCROLL_X)
+    
+    local scrollx = previous_scroll_x
 	local mmtilex = math.floor((scrollx+128)%256 / TILE_SIZE)
-	local mmtiley = math.floor(mmy / TILE_SIZE)
 	local size1 = math.floor((NUM_COLS)/2) - mmtilex
-	--emu.message(string.format("%02X",getBlockAt(stage, screen, mmtilex*1, (mmtiley-1)*1)))
-	--gui.text(0,8,string.format("pos:%02X, %02X\nblock: %02X",mmtilex, mmtiley, getBlockAt(stage, screen, mmtilex/2, (mmtiley)/2 + 1)))
-	--if scrollx == 0 then
-		--return map2
-	--end
+
 	local map = {}
 	for i = 1,NUM_ROWS do
 		map[i] = {}
@@ -117,14 +121,14 @@ function getMap(stage, screen)
 			for j = 1,size1 do
 				map[i][j] = map1[i][(NUM_COLS - size1) + j]
 			end
-			for j = 1,NUM_COLS-size1 do
+            for j = 1,NUM_COLS-size1 + 1 do
 				map[i][size1+j] = map2[i][j]
 			end
 		else
 			for j = 1,NUM_COLS+size1 do
 				map[i][j] = map2[i][j-size1]
 			end
-			for j = 1,-size1 do
+            for j = 1, -size1 + 1 do
 				map[i][NUM_COLS + size1 + j] = map3[i][j]
 			end
 		end
@@ -135,59 +139,53 @@ end
 
 function validState()
 	local state = memory.readbyte(GAME_STATE)
-	return state==PLAYING or state==BOSS_RUSH or state==LAGGING or state==HEALTH_REFILL or state==DEAD
+    return state==PLAYING or state==BOSS_RUSH or state==LAGGING or state==HEALTH_REFILL or state==LAGGING2
 end
 
 function minimap()
-	if not validState() then return end --originally was if not validState then blah end. It worked fine without parentheses???
+    if not validState() then return end
+    
 	local current_stage = memory.readbyte(CURRENT_STAGE)
 	if current_stage >= 8 then
 		current_stage = current_stage - 8
 	end
+    
 	local current_screen = memory.readbyte(CURRENT_SCREEN)
-	local scroll_x = memory.readbyte(SCROLL_X)
+    previous_scroll_x = current_scroll_x
+    current_scroll_x = memory.readbyte(SCROLL_X)
+    local scroll_x = previous_scroll_x
 	local mmx = memory.readbyte(MEGAMAN_X)
-	local mmtilex = math.floor((scroll_x+128)%256 / TILE_SIZE) --math.floor(mmx / TILE_SIZE)
+    local mmDrawX = math.ceil(AND(mmx + 255 - scroll_x, 255))
+    
+    if mmDrawX > mmx and scroll_x < 128 then
+        current_screen = current_screen - 1
+    end
+    
+    local mmtilex = math.floor(mmx / TILE_SIZE) -- math.floor((scroll_x+128)%256 / TILE_SIZE)
 	local map = getMap(current_stage, current_screen)
 	local map_offset = scroll_x % 16
 	local map_left = -16 - map_offset --SCREEN_WIDTH - NUM_COLS * MINI_TILE_SIZE - 2 * MINI_TILE_SIZE
-	--if scroll_x % 16 == 0 and scroll_x > 0 then map_left = -32 end -- ???
 	local map_top = -16 --MINI_TILE_SIZE * 2
-	local color
-	local i, j
+    
 	for i = 1,NUM_ROWS do
-		for j = 1,NUM_COLS do
-			color = "#00000077"
+        for j = 1, NUM_COLS + 1 do
+            local color
 			if isWall(map[i][j]) then
-				color = "#0000FF77"
+                color = WALL_COLOR
 			end
 			if isFatal(map[i][j]) then
-				color = "#FF000077"
+                color = FATAL_COLOR
 			end
 			if isLadder(map[i][j]) then
-				color = "#00FF0077"
+                color = LADDER_COLOR
 			end
-			if color ~= "#00000077" then
-				--To turn this from minimap into full-size map, this line is literally all we need to change.
-				--FIXME: what's with the stutering?
-				gui.drawbox(map_left + j * MINI_TILE_SIZE, map_top + i * MINI_TILE_SIZE, map_left + j * MINI_TILE_SIZE + MINI_TILE_SIZE,  map_top + i * MINI_TILE_SIZE + MINI_TILE_SIZE, color, color)
+            if color then
+                gui.drawbox(
+                    map_left + j*MINI_TILE_SIZE, map_top + i*MINI_TILE_SIZE,
+                    map_left + j*MINI_TILE_SIZE + MINI_TILE_SIZE, map_top + i*MINI_TILE_SIZE + MINI_TILE_SIZE,
+                    color, color)
 			end
 		end
 	end
-	--gui.text(0,8,string.format("x scrl: %d",scroll_x))
-	--gui.text(0,16,"mod: "..scroll_x%16)
-	--gui.text(0,24,"mmx: "..mmx)
-	--gui.text(0,32,"tile x: "..mmtilex)
-	local sx, sy	--[[
-	for i = 0,NUM_SPRITES-1 do --TODO: replace this with a call to someone else's sprite hitbox code
-		if memory.readbyte(MEGAMAN_ID2+i)>=0x80 then
-			color = string.format("#%x%x%x",memory.readbyte(MEGAMAN_ID + i), memory.readbyte(MEGAMAN_ID2 + i), i*8)
-			sx = memory.readbyte(MEGAMAN_X + i)
-			sx = math.ceil(AND(sx+255-scroll_x,255) / TILE_SIZE)
-			sy = math.ceil((memory.readbyte(MEGAMAN_Y + i)) / TILE_SIZE)
-			gui.drawbox(map_left + sx * MINI_TILE_SIZE, map_top + sy * MINI_TILE_SIZE, map_left + sx * MINI_TILE_SIZE + MINI_TILE_SIZE,  map_top + sy * MINI_TILE_SIZE + MINI_TILE_SIZE, color, "clear")			
 		end
-	end ]]
-end
-
-emu.registerafter(minimap)
+gui.register(minimap)
