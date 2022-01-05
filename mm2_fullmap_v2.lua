@@ -1,9 +1,10 @@
--- BLOCK TYPES
-WALL = 0x40
-LADDER = 0x80   -- also water and right conveyor belts
-FATAL = 0xC0 -- also ice and left conveyor belts
+--[[
+    "Every program has two purposes: The one for which it was written and another for which it wasn't."
+    This script started as a minimap intended for a machine learning experiment. I bastardized it into a "fullmap"
+    script to help visualize tricky zips. How fun!
+]]
 
--- OTHER INFO
+-- MISC INFO
 TILE_SIZE = 16
 NUM_ROWS = 15
 NUM_COLS = 16
@@ -27,10 +28,9 @@ READY = 82
 -- RAM ADDRESSES
 SCROLL_X = 0x001F
 SCROLL_Y = 0x0022
-CURRENT_STAGE = 0x002A -- STAGE SELECT = 1,2,3... clockwise starting at bubble man
+CURRENT_STAGE = 0x002A -- STAGE SELECT = 0,1,2... Same order as pause menu
 GAME_STATE = 0x01FE
 MEGAMAN_ID = 0x0400
-MEGAMAN_ID2 = 0x0420 -- TODO: flags, actually
 CURRENT_SCREEN = 0x0440
 MEGAMAN_X = 0x0460
 MEGAMAN_Y = 0x04A0
@@ -49,12 +49,6 @@ TSA_PROPERTIES_SIZE = 0x500
 MAP_START = 0x510
 MAP_SIZE = 0x4000
 
--- SCRIPT CONFIG
--- TODO: The stage header actually tells us whether it's ladder, spikes, water, etc. So we can use more colors here.
-WALL_COLOR = "#0000FF77"
-FATAL_COLOR = "#FF000077"
-LADDER_COLOR = "#00FF0077"
-
 local tile_colors = {
     "#0000FF77", -- Ground
     "#00FF0077", -- Ladder
@@ -64,6 +58,9 @@ local tile_colors = {
     "#ffbf0077", -- Left Conveyor,
     "#f0f8ff77", -- Ice
 }
+
+-- Functions to drill down into the level data, by Rafael Pinto. They read directly from the ROM rather than deal with MMC1 bank shenanigans.
+-- He cites Rock5Easily's editor as the source for his understanding of this format.
 
 function getBlockAt(stage, screen, x, y)
     local stage_start = stage * MAP_SIZE + MAP_START
@@ -83,6 +80,8 @@ function getTSAFromBlock(stage, block, x, y)
     return TSAArray[x * TSA_ROWS_PER_MACRO + y + 1]
 end
 
+-- Certain sprites (namely yoku blocks and Crash Bomb walls) use an interesting little collision override system to become solid.
+-- This is why you can zip through them.
 function getBgOverride(screen, x, y)
     local x_pixel = x * 16
     local y_pixel = y * 16
@@ -95,7 +94,7 @@ function getBgOverride(screen, x, y)
         local sprite_y = memory.readbyte(SPRITE_OVERRIDE_Y + sprite_offset)
         
         -- Vanilla game uses F0 (1 block) and C0 (4 blocks) for these masks.
-        -- But this script ought to support anything that's a whole number of blocks! i.e. lower nyble == 0.
+        -- But why not support anything that's a whole number of blocks! i.e. lower nyble == 0.
         if bit.band(collision_mask_x, 0xF0) ~= collision_mask_x or bit.band(collision_mask_y, 0xF0) ~= collision_mask_y then 
             gui.text(10, 10, string.format("sprite #%02X is non block-aligned! (%02X, %02X)", sprite_offset, collision_mask_x, collision_mask_y))
             return
@@ -107,7 +106,8 @@ function getBgOverride(screen, x, y)
     end
 end
 
-function getTileAt(stage, screen, x, y)
+-- Returns the actual tile type (air, ground, spikes, ladder...)
+function getTileAt(stage, screen, x, y) -- TODO: the stage param is normalized to 0 - 7. Need to pass it raw to get the the special tile types.
     local override = getBgOverride(screen, x, y)
     if override then return override end
     
@@ -123,23 +123,6 @@ function getTileAt(stage, screen, x, y)
     end
 end
 
-function isWall(TSA)
-    return AND(TSA, 0xC0) == WALL
-end
-
-function isFatal(TSA)
-    return AND(TSA, 0xC0) == FATAL
-end
-
-function isLadder(TSA)
-    return AND(TSA, 0xC0) == LADDER
-end
-
-function isFree(TSA)
-    return AND(TSA, 0xC0) == 0
-end
-
--- TODO: Get the collision overrides used by yoku blocks and Crash walls.
 function getScreenMap(stage, screen)
     local map = {}
     local i, j, x, y, tile
@@ -156,7 +139,7 @@ end
 local current_scroll_x = memory.readbyte(SCROLL_X)
 local previous_scroll_x = current_scroll_x
 
--- TODO: Why is Mega Man's position used here at all? Just get 2 screens of map and offset it.
+-- Get three screens worth of map data to smoothly scroll through.
 function getMap(stage, screen)
     local map1 = getScreenMap(stage, screen - 1)
     local map2 = getScreenMap(stage, screen)
@@ -199,15 +182,8 @@ local prevSelect = false
 
 function minimap()
 
-    -- if joypad.getdown(1).select then
-        -- if not prevSelect then toggle = not toggle end
-        -- prevSelect = true
-    -- else
-        -- prevSelect = false
-    -- end
-
     -- Didn't I have some overzip check here at one point? Or did I simply do frame advance video editing?
-    if not toggle or not validState() then return end
+    if not validState() then return end
     
     local current_stage = memory.readbyte(CURRENT_STAGE)
     if current_stage >= 8 then
