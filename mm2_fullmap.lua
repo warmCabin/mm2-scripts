@@ -1,7 +1,3 @@
--- BLOCK TYPES
-WALL = 0x40
-LADDER = 0x80   -- also water and right conveyor belts
-FATAL = 0xC0 -- also ice and left conveyor belts
 
 -- OTHER INFO
 TILE_SIZE = 16
@@ -30,10 +26,17 @@ SCROLL_Y = 0x0022
 CURRENT_STAGE = 0x002A -- STAGE SELECT = 1,2,3... clockwise starting at bubble man
 GAME_STATE = 0x01FE
 MEGAMAN_ID = 0x0400
-MEGAMAN_ID2 = 0x0420
 CURRENT_SCREEN = 0x0440
 MEGAMAN_X = 0x0460
 MEGAMAN_Y = 0x04A0
+SPRITE_OVERRIDES_LENGTH = 0x55
+SPRITE_OVERRIDES = 0x56
+SPRITE_X_MASKS = 0x0610
+SPRITE_Y_MASKS = 0x0630
+SPRITE_OVERRIDE_X = 0x0650
+SPRITE_OVERRIDE_Y = 0x0670
+SPRITE_OVERRIDE_VALUE = 0x04F0
+STAGE_TILE_TYPES = 0xCC44
 
 -- ROM ADDRESSES
 TSA_PROPERTIES_START = 0x10
@@ -41,10 +44,18 @@ TSA_PROPERTIES_SIZE = 0x500
 MAP_START = 0x510
 MAP_SIZE = 0x4000
 
--- SCRIPT CONFIG
-WALL_COLOR = "#0000FF77"
-FATAL_COLOR = "#FF000077"
-LADDER_COLOR = "#00FF0077"
+local tile_colors = {
+    "#0000FF77", -- Ground
+    "#00FF0077", -- Ladder
+    "#FF000077", -- Spikes
+    "#5d8aa877", -- Water
+    "#cc000077", -- Right conveyor
+    "#ffbf0077", -- Left Conveyor,
+    "#f0f8ff77", -- Ice
+}
+
+-- Functions to drill down into the level data, by Rafael Pinto. They read directly from the ROM rather than deal with MMC1 bank shenanigans.
+-- He cites Rock5Easily's editor as the source for his understanding of this format.
 
 function getBlockAt(stage, screen, x, y)
     local stage_start = stage * MAP_SIZE + MAP_START
@@ -64,38 +75,57 @@ function getTSAFromBlock(stage, block, x, y)
     return TSAArray[x * TSA_ROWS_PER_MACRO + y + 1]
 end
 
-function getTSAAt(stage, screen, x, y)
+-- Certain sprites (namely yoku blocks and Crash Bomb walls) use an interesting little collision override system to become solid.
+-- This is why you can zip through them.
+function getBgOverride(screen, x, y)
+    local x_pixel = x * 16
+    local y_pixel = y * 16
+    local num_solid_sprites = memory.readbyte(SPRITE_OVERRIDES_LENGTH)
+    for i = 0, num_solid_sprites - 1 do
+        local sprite_offset = memory.readbyte(SPRITE_OVERRIDES + i)
+        local collision_mask_x = memory.readbyte(SPRITE_X_MASKS + sprite_offset)
+        local sprite_x = memory.readbyte(SPRITE_OVERRIDE_X + sprite_offset)
+        local collision_mask_y = memory.readbyte(SPRITE_Y_MASKS + sprite_offset)
+        local sprite_y = memory.readbyte(SPRITE_OVERRIDE_Y + sprite_offset)
+        
+        -- Vanilla game uses F0 (1 block) and C0 (4 blocks) for these masks.
+        -- But why not support anything that's a whole number of blocks! i.e. lower nyble == 0.
+        if bit.band(collision_mask_x, 0xF0) ~= collision_mask_x or bit.band(collision_mask_y, 0xF0) ~= collision_mask_y then 
+            gui.text(10, 10, string.format("sprite #%02X is non block-aligned! (%02X, %02X)", sprite_offset, collision_mask_x, collision_mask_y))
+            return
+        end
+        
+        if bit.band(x_pixel, collision_mask_x) == sprite_x and bit.band(y_pixel, collision_mask_y) == sprite_y then
+            return memory.readbyte(SPRITE_OVERRIDE_VALUE + sprite_offset)
+        end
+    end
+end
+
+-- Returns the actual tile type (air, ground, spikes, ladder...)
+function getTileAt(stage, screen, x, y) -- TODO: the stage param is normalized to 0 - 7. Need to pass it raw to get the the special tile types.
+    local override = getBgOverride(screen, x, y)
+    if override then return override end
+    
     local block_x = math.floor(x / TSA_COLS_PER_MACRO)
     local block_y = math.floor(y / TSA_ROWS_PER_MACRO)
     local block = getBlockAt(stage, screen, block_x, block_y)
     local TSA = getTSAFromBlock(stage, block, x % TSA_COLS_PER_MACRO, y % TSA_ROWS_PER_MACRO)
-    return TSA
-end
-
-function isWall(TSA)
-    return AND(TSA, 0xC0) == WALL
-end
-
-function isFatal(TSA)
-    return AND(TSA, 0xC0) == FATAL
-end
-
-function isLadder(TSA)
-    return AND(TSA, 0xC0) == LADDER
-end
-
-function isFree(TSA)
-    return AND(TSA, 0xC0) == 0
+    local tile_type = bit.rshift(TSA, 6)
+    if tile_type <= 1 then
+        return tile_type
+    else
+        return memory.readbyte(STAGE_TILE_TYPES + 2 * stage + tile_type - 2)
+    end
 end
 
 function getScreenMap(stage, screen)
     local map = {}
-    local i, j, x, y, TSA
+    local i, j, x, y, tile
     for i = 1,NUM_ROWS do
         map[i] = {}
         for j = 1,NUM_COLS+1 do
-            TSA = getTSAAt(stage, screen, j-1, i-1)
-            map[i][j] = TSA
+            tile = getTileAt(stage, screen, j-1, i-1)
+            map[i][j] = tile
         end
     end
     return map
@@ -169,16 +199,7 @@ function minimap()
     
     for i = 1, NUM_ROWS do
         for j = 1, NUM_COLS + 1 do
-            local color
-            if isWall(map[i][j]) then
-                color = WALL_COLOR
-            end
-            if isFatal(map[i][j]) then
-                color = FATAL_COLOR
-            end
-            if isLadder(map[i][j]) then
-                color = LADDER_COLOR
-            end
+            local color =  tile_colors[map[i][j]]
             if color then
                 gui.drawbox(
                     map_left + j*MINI_TILE_SIZE, map_top + i*MINI_TILE_SIZE,
