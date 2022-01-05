@@ -41,6 +41,7 @@ SPRITE_Y_MASKS = 0x0630
 SPRITE_OVERRIDE_X = 0x0650
 SPRITE_OVERRIDE_Y = 0x0670
 SPRITE_OVERRIDE_VALUE = 0x04F0
+STAGE_TILE_TYPES = 0xCC44
 
 -- ROM ADDRESSES
 TSA_PROPERTIES_START = 0x10
@@ -53,6 +54,16 @@ MAP_SIZE = 0x4000
 WALL_COLOR = "#0000FF77"
 FATAL_COLOR = "#FF000077"
 LADDER_COLOR = "#00FF0077"
+
+local tile_colors = {
+    "#0000FF77", -- Ground
+    "#00FF0077", -- Ladder
+    "#FF000077", -- Spikes
+    "#5d8aa877", -- Water
+    "#cc000077", -- Right conveyor
+    "#ffbf0077", -- Left Conveyor,
+    "#f0f8ff77", -- Ice
+}
 
 function getBlockAt(stage, screen, x, y)
     local stage_start = stage * MAP_SIZE + MAP_START
@@ -91,13 +102,12 @@ function getBgOverride(screen, x, y)
         end
         
         if bit.band(x_pixel, collision_mask_x) == sprite_x and bit.band(y_pixel, collision_mask_y) == sprite_y then
-            return WALL
-            -- return memory.readbyte(SPRITE_OVERRIDE_VALUE + sprite_offset) -- TODO: Do this when we start using actual tile types instead of weirdo index.
+            return memory.readbyte(SPRITE_OVERRIDE_VALUE + sprite_offset)
         end
     end
 end
 
-function getTSAAt(stage, screen, x, y)
+function getTileAt(stage, screen, x, y)
     local override = getBgOverride(screen, x, y)
     if override then return override end
     
@@ -105,7 +115,12 @@ function getTSAAt(stage, screen, x, y)
     local block_y = math.floor(y / TSA_ROWS_PER_MACRO)
     local block = getBlockAt(stage, screen, block_x, block_y)
     local TSA = getTSAFromBlock(stage, block, x % TSA_COLS_PER_MACRO, y % TSA_ROWS_PER_MACRO)
-    return TSA
+    local tile_type = bit.rshift(TSA, 6)
+    if tile_type <= 1 then
+        return tile_type
+    else
+        return memory.readbyte(STAGE_TILE_TYPES + 2 * stage + tile_type - 2)
+    end
 end
 
 function isWall(TSA)
@@ -127,12 +142,12 @@ end
 -- TODO: Get the collision overrides used by yoku blocks and Crash walls.
 function getScreenMap(stage, screen)
     local map = {}
-    local i, j, x, y, TSA
+    local i, j, x, y, tile
     for i = 1,NUM_ROWS do
         map[i] = {}
         for j = 1,NUM_COLS+1 do
-            TSA = getTSAAt(stage, screen, j-1, i-1)
-            map[i][j] = TSA
+            tile = getTileAt(stage, screen, j-1, i-1)
+            map[i][j] = tile
         end
     end
     return map
@@ -218,16 +233,7 @@ function minimap()
     
     for i = 1, NUM_ROWS do
         for j = 1, NUM_COLS + 1 do
-            local color
-            if isWall(map[i][j]) then
-                color = WALL_COLOR
-            end
-            if isFatal(map[i][j]) then
-                color = FATAL_COLOR
-            end
-            if isLadder(map[i][j]) then
-                color = LADDER_COLOR
-            end
+            local color =  tile_colors[map[i][j]]
             if color then
                 gui.drawbox(
                     map_left + j*MINI_TILE_SIZE, map_top + i*MINI_TILE_SIZE,
