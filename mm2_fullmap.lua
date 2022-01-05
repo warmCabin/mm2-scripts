@@ -1,3 +1,7 @@
+--[[
+    TODO: Merge this with mm2_fullmap_v2. This is just an old version of that file.
+]]
+
 -- BLOCK TYPES
 WALL = 0x40
 LADDER = 0x80	-- also water and right conveyor belts
