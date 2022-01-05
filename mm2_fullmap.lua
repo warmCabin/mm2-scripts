@@ -1,5 +1,10 @@
+--[[
+    "Every program has two purposes: The one for which it was written and another for which it wasn't."
+    This script started as a minimap intended for a machine learning experiment. I bastardized it into a "fullmap"
+    script to help visualize tricky zips. How fun!
+]]
 
--- OTHER INFO
+-- MISC INFO
 TILE_SIZE = 16
 NUM_ROWS = 15
 NUM_COLS = 16
@@ -23,7 +28,7 @@ READY = 82
 -- RAM ADDRESSES
 SCROLL_X = 0x001F
 SCROLL_Y = 0x0022
-CURRENT_STAGE = 0x002A -- STAGE SELECT = 1,2,3... clockwise starting at bubble man
+CURRENT_STAGE = 0x002A -- STAGE SELECT = 0,1,2... Same order as pause menu
 GAME_STATE = 0x01FE
 MEGAMAN_ID = 0x0400
 CURRENT_SCREEN = 0x0440
@@ -134,7 +139,7 @@ end
 local current_scroll_x = memory.readbyte(SCROLL_X)
 local previous_scroll_x = current_scroll_x
 
--- TODO: Why is Mega Man's position used here at all? Just get 2 screens of map and offset it.
+-- Get three screens worth of map data to smoothly scroll through.
 function getMap(stage, screen)
     local map1 = getScreenMap(stage, screen - 1)
     local map2 = getScreenMap(stage, screen)
@@ -169,10 +174,12 @@ end
 
 function validState()
     local state = memory.readbyte(GAME_STATE)
-    return state==PLAYING or state==BOSS_RUSH or state==LAGGING or state==HEALTH_REFILL or state==LAGGING2
+    return state==PLAYING or state==BOSS_RUSH or state==HEALTH_REFILL or state==LAGGING or state==LAGGING2
 end
 
 function minimap()
+
+    -- Didn't I have some overzip check here at one point? Or did I simply do frame advance video editing?
     if not validState() then return end
     
     local current_stage = memory.readbyte(CURRENT_STAGE)
