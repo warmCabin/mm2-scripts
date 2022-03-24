@@ -2,7 +2,7 @@
 --[[
     A testing script I made to workshop a zip setup with cyghfer. This is a funny story:
     He kept failing the bottom zip in Metal maybe 50% of the time despite using the same setup as coolkid.
-    Most of us just made god gamer jokes, but this shit was too consistent, so he convinved me to take a look.
+    Most of us just made god gamer jokes, but this shit was too consistent, so he convinced me to take a look.
     Turns out that by placing Item 1s in a particular way at the beginning of the stage, and skipping the conveyor zip,
     CK got perfect subpixels for bottom zip every time. God gamer indeed! Meanwhile, cyghfer got the perfect subpixels
     but clobbered them by doing conveyor zip, proving that conveyor zip is indeed cursed. But he wanted to have his cake
