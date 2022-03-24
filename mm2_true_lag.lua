@@ -70,7 +70,9 @@ emu.registerafter(update)
 
 function ppuStatusChange(addr,size,val)
 	
-	val = memory.readbyte(addr) --the passed value is always nil, for some reason. Super lame.
+    -- In old versions of FCEUX, the passed val was always nil for some reason. It was super lame.
+    -- This is the cope.
+	val = memory.readbyte(addr)
 	
 	if AND(val,0x18) ~= 0 then -- 0x10: render sprites | 0x08: render BG
 		rendering = true
