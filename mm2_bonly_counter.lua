@@ -1,8 +1,6 @@
-
 --[[
-
-	Overview
-	
+	Counts how many times you use a non-Buster weapon. It's a glorified B-press counter, really.
+    Doesn't check if you're out of ammo or there are too many projectiles on screen already.
 ]]
 
 local bPressCount = 0
@@ -29,9 +27,6 @@ end
 emu.registerafter(update)
 
 local function guiFunc()
-	--[[if emu.framecount() ~= prevFrame then
-		update()
-	end ]]
 	if persistTimer > 0 then
 		gui.text(100,210,"Weapon use #"..bPressCount)
 	end
