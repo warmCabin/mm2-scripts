@@ -47,6 +47,7 @@ local function forceTileType()
 end
 
 local function main()
+    local xScroll = 256 * memory.readbyte(0x20) + memory.readbyte(0x1F)
     local numSolidSprites = memory.readbyte(0x55)
     for i = 0, numSolidSprites - 1 do
         local slot = memory.readbyte(0x56 + i)
@@ -55,7 +56,9 @@ local function main()
         local yMask = memory.readbyte(0x0630 + slot)
         local yPos = memory.readbyte(0x0670 + slot)
         local tileType = memory.readbyte(0x04F0 + slot)
+        local screenNum = memory.readbyte(0x0440 + slot + 16) -- Don't ask
         gui.text(10, i * 10 + 10, string.format("[%02X] %02X:%02X, %02X:%02X - %02X", slot, xMask, xPos, yMask, yPos, tileType))
+        gui.text(screenNum * 256 + xPos - xScroll, yPos, string.format("%02X", slot))
     end
 end
 emu.registerafter(main)
