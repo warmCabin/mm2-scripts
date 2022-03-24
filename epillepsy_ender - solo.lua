@@ -1,6 +1,16 @@
+--[[
+    This may sound like a noble goal, but in reality, I wrote this beause I had a headache ._.
+    
+    This is a bit screwy. I more or less abandoned this and used a ROM hack for the video I ultimately published:
+    https://www.youtube.com/watch?v=jKhm1tkOT5g
+    
+    This version attempts to apply epilepsy reduction to only the global BG color (color 0)
+]]
 
 --[[
 	https://stackoverflow.com/questions/41954718/how-to-get-ppu-memory-from-fceux-in-lua
+    
+    Oh hey, there's an answer from me there now!
 ]]
 function memory.writebyteppu(a,v)
     --memory.writebyte(0x2001,0x00) -- Turn off rendering
