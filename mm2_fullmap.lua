@@ -1,5 +1,7 @@
 --[[
-    "Every program has two purposes: The one for which it was written and another for which it wasn't."
+    "Every program has (at least) two purposes: the one for which it was written, and another for which it wasn't."
+      - Alan Perlis, Epigrams on Programming
+      
     This script started as a minimap intended for a machine learning experiment. I bastardized it into a "fullmap"
     script to help visualize tricky zips. How fun!
 ]]
