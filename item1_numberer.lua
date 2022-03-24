@@ -1,64 +1,20 @@
 
 --[[
-	by warmCabin
-	
-	This script draws hitboxes and displays a few variables to help you track the mysterious behavior
-	of the "lenient Crash Bomb."
-	Huge thanks to stalwarTTurtle for noticing and investigating this, and drawing everyone's curiosity
-	in the Discord server!
-	
-	He noticed that, in the Boobeam fight, certain Crash Bomb placements were inconsistent. From one savestate,
-	he could easily shoot the middle door without jumping (a lenient Crash Bomb). From another, the explosion
-	simply wouldn't hit it, no matter how many bombs he shot (a strict Crash Bomb). He discovered that shooting
-	Quick Boomerangs made your Crash Bombs strict, and that shooting a Leaf Shield made your Crash Bombs lenient.
-	SUPER lenient, in fact; leading to placements he called "outlandish."
-	Crash Bombs aren't controlled by RNG. I suggested that it might be the Item 1 or Item 3 seeds, a set of pesky
-	variables that all weapons reuse without clearing. But those values have no effect on Crash Bombs whatsoever. 
-	So what on Earth is going on!?
-	
-	Turns out I wasn't too far off the mark. There's a different set of variables we need to track, here.
-	
-	The variables of note are $0592 - $0595. Polari is the one who noticed they were changing.
-	Thanks to finalfighter's hitbox code, I was able to determine their function.
-	It turns out that, from $0590-$059F, there is a value for each sprite that I like to call
-	the hitbox property index (note that these only apply to Mega Man and his projectiles; the other
-	sprites function completely differently, for some reason). The hitbox property index serves as
-	an index into a table, which serves as an index into ANOTHER table, which contains hitbox size
-	and presumably a lot of other cool stuff that I don't understand. How finalfighter figured this out
-	in the first place is beyond me...maybe he worked at Capcom in the 80's :p
-	
-	Sprite indexes 2-5 are reserved for projectiles. They are assigned indexes on the range
-	[2,max projectiles+1], from highest to lowest. Leaf Shield and Quick Boomerang are the only
-	weapons capable of altering index 5.
-	
-	The property index in $0592 - $0595 is set whenever a weapon is fired. The value is on
-	the range [0,4]. 1 is smallest, 4 is biggest, 0 corresponds to Mega Man's hitbox size.
-	Item 3 is the exception. It improperly uses $0592 as a timer of some sort when it reaches the top
-	of a wall, which causes the hitbox code to read data out of bounds and produce essentially random
-	hitboxes. Item collisions seem to be handled indepently of these hitbox values, though, so this bug
-	does not manifest in gameplay in any way.
-	
-	Crash Bombs (the actual projectiles that stick to walls) have a property index of 2,
-	which is set as expected. But the explosion particles are a different story. They read from $0593 - $0596
-	for their hitbox sizes, but they DO NOT WRITE to this range! This means they use whatever hitbox
-	sizes happened to already be there! This bug is the root cause of the lenient Crash Bomb.
-	Unfortunately, Item 3 cannot be abused to make massive Crash Bomb hitboxes, since the erroneous timer
-	value is always overwritten by 2 :/
-	
-	Crash Bomb explosions consist of 5 particles. The first remains in place at the exact location where
-	the bomb exploded; the other 4 move around in a preset pattern. The stationary particle will always
-	have a hitbox size of 2, so it seems like the other 4 are fair game for manipulation! However, that's not
-	quite the case. Since there are 5 particles at play here, one of them is going to use $5096. $5096 is
-	initialized to 0 when the game boots, and afaik, cannot be altered in any way. Bummer :(
-	
-	As stalwarTTurtle showed, we can still see some meaningful differences with the 3 hitboxes we CAN manipulate.
-	He recommends firing a Leaf Shield before you step into the fight, as a safety strat.
-	
-	---------------------
-	
-	The numbers along the top of the screen correspond to the property indexes discussed above ($0592 - $0595).
-	Watch how they behave as you fire different weapons. Mega Man and projectile hitboxes are drawn with colors
-	corresponding to their sizes. Synaesthesia ftw!
+    A testing script I made to workshop a zip setup with cyghfer. This is a funny story:
+    He kept failing the bottom zip in Metal maybe 50% of the time despite using the same setup as coolkid.
+    Most of us just made god gamer jokes, but this shit was too consistent, so he convinved me to take a look.
+    Turns out that by placing Item 1s in a particular way at the beginning of the stage, and skipping the conveyor zip,
+    CK got perfect subpixels for bottom zip every time. God gamer indeed! Meanwhile, cyghfer got the perfect subpixels
+    but clobbered them by doing conveyor zip, proving that conveyor zip is indeed cursed. But he wanted to have his cake
+    and eat it too, so on a livestream we came up with a couple setups whereby he could waste Item 1 and manipulate a good value.
+    We evenutally settled on a viable one. That stream is lost to time, but you can probably see the setup in a cyghfer VOD somewhere.
+    
+    In particular, if an Item 1 ascends and poofs on the ceiling, it will have a top-quarter subpixel, which is perfect for the zip.
+    This doesn't work if if its timer runs out and it poofs in the air. Only a ceiling poof will do.
+    
+    This script simply draws sprite slot numbers over your projectiles, but they're the "item1height" numbers instead of the
+    actual indexes in memory. #1, #2, and #3 is a bit easier to keep track of then #4, #3, and #2, don't you think?
+    It even draws a smiley face when you have a good subpixel for the zip!
 ]]
 
 --Only interested in tracking the 4 weapon-controllable ones ($0592 - $0595).
