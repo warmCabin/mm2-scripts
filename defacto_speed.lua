@@ -1,8 +1,11 @@
 --[[
+  My attempt at making a canonical zip detector. A lot of ladder tech which we traditionally don't consider a zip gets picked up
+  by this check, and I am NOT about to go and outlaw all the fun. So this needs some refinement.
 
   Let's define a zip as:
     When you are inside a block and you get pushed out by 16 pixels.
-
+    There are a surprising number of borderline cases that don't meet this definition but still feel kinda cheesy.
+    Plus the ladder stuff which DOES meet this definition but DOESN'T feel cheesy.
 ]]
 
 local prev = {}
