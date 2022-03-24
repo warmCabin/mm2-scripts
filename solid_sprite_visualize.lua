@@ -2,31 +2,52 @@
     Draw the solid sprite collision override data to screen.
     mm2_fullmap draws the little blue squares, but it can only understand block-aligned masks (i.e. lower nyble = 0).
     Block-aligned masks are really the intended purpose of this system, but...you can get weird with it >:)
+    
+    Want disappearing ice blocks? Or crash walls that kill you?
+    Pass the arg --force-tile-type then hold select + up or down to force a tile type!
+    
+    Tile types:
+      0 = air
+      1 = ground
+      2 = ladder
+      3 = spikes
+      4 = water
+      5 = right conveyor belt
+      6 = left conveyor belt
+      7 = ice
+      8 = glitchy barrier
 ]]
 
-local SOLID_SPRITE_TYPE_ADDRESS = 0x04FB
-local solidSpriteType = 0
+local forcedTileType = 1
 
-local prevSelect = false
-local shouldForceTileType = true
+local prevJoy = {}
+local shouldForceTileType = arg == "--force-tile-type"
 
 local function forceTileType()
-    if joypad.get(1).select then
-        if not prevSelect then
-            solidSpriteType = solidSpriteType + 1
-            prevSelect = true
+    local joy = joypad.get(1)
+    if joy.select then
+        if joy.up and not prevJoy.up then
+            forcedTileType = forcedTileType + 1
+        elseif joy.down and not prevJoy.down then
+            forcedTileType = forcedTileType - 1
         end
-    else
-        prevSelect = false
     end
+    prevJoy = joy
+
+    gui.text(240, 220, string.format("%02X", forcedTileType))
     
-    --memory.writebyte(SOLID_SPRITE_TYPE_ADDRESS, solidSpriteType)
-    gui.text(10, 10, string.format("%02X", solidSpriteType))
-    --gui.text(10, 20, string.format("%02X", memory.readbyte(0x40)))
-    --gui.text(10, 30, string.format("%02X", memory.readbyte(0x37)))
+    local numSolidSprites = memory.readbyte(0x55)
+    for i = 0, numSolidSprites - 1 do
+        local slot = memory.readbyte(0x56 + i)
+        memory.writebyte(0x04F0 + slot, forcedTileType)
+    end
 end
 
 local function main()
+
+    -- It's a simple contract.
+    if shouldForceTileType then forceTileType() end
+
     local xScroll = 256 * memory.readbyte(0x20) + memory.readbyte(0x1F)
     local numSolidSprites = memory.readbyte(0x55)
     for i = 0, numSolidSprites - 1 do
