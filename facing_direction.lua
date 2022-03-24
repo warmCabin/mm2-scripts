@@ -1,3 +1,11 @@
+--[[
+    Draws an arrow over each sprite to tell you which way it's facing. That's it.
+    I need to combine some of these scripts into an ultimate hitbox script or something.
+    
+    The original use case for this, btw, was to investigate a damage boost from a scworm,
+    which faces the same direction even though its little dance makes it look like its constantly flipping.
+]]
+
 local EmuYFix = 0
 local drawBoxes = false
 
