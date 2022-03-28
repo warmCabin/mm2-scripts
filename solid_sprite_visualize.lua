@@ -15,7 +15,26 @@
       5 = right conveyor belt
       6 = left conveyor belt
       7 = ice
-      8 = glitchy barrier
+      8 = door scroll?
+      
+      This system is used by:
+        - Yoku blocks: override 1 tile to 1 (solid)
+        - Crash wall type 1: override 2 tiles to 1 (solid).
+            These are forced to be 2-block aligned.
+        - Crash wall type 2: override 4 tiles to 1 (solid).
+            This is done to allow odd block-aligned walls. You need to make sure there is level
+            directly above and below them or it will seem strange.
+        - Frienders: override 2 tiles to 1 (solid) to create the barrier
+            Interestingly, it makes two 2-tilers instead of one 4-tiler.
+            This frees it from being only 4-tile aligned.
+        - Doors: override 2 tiles to 8 (door jank)
+            I don't really understand how this works. I think it's mainly to prevent you from
+            walking backwards in the subsequent room.
+            
+      Surprisingly, this system is NOT used by:
+       - Metal Man to update his conveyor belt.
+       - the Wily machine to make the floor disappear after you defeat it
+          
 ]]
 
 local forcedTileType = 1
