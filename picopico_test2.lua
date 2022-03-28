@@ -74,6 +74,32 @@ local function getNextOverride()
 end
 
 local prevBossHealth = 0
+local prevSpawn = false
+
+local function checkSpawn()
+    for i = 0x1D, 0x1F do
+        local flags = memory.readbyte(0x0420 + i)
+        if flags >= 0x80 then
+            local id = memory.readbyte(0x0400 + i)
+            if id == 0x6A then
+                -- the half blocks and the full blocks are both 6A in different states.
+                -- They use the timer to control movement speed, I think.
+                -- boss timer (B2) is used to store which-th picoblock we're on. Could reuse this as oIndex.
+                if bit.band(flags, 8) == 8 then
+                    if not prevSpawn then
+                        --print("One spawned!")
+                        prevSpawn = true
+                        return true
+                    else
+                        return false
+                    end
+                end
+            end
+        end
+    end
+    prevSpawn = false
+    return false
+end
 
 -- I'm not sure how well this God method would translate to the actual game code.
 -- I suppose there must be a picopico runner routine, right?
@@ -82,22 +108,21 @@ local prevBossHealth = 0
 -- Here's a totally wild alternate solution: What if we did an overzip meme? Each spawn sets everything's position to the next screen,
 -- which has the collision info baked in.
 local function createOverrides()
+
     local bossHealth = memory.readbyte(0x06C1)
     
-    if bossHealth == 28 and bossHealth ~= prevBossHealth then
-        print("The first one spawned!")
+    if bossHealth == 0 then
         oIndex = 0
         numSolidSprites = 0
-        getNextOverride()
-    elseif bossHealth ~= 0 and bossHealth < prevBossHealth then
-        print("a new one spawned!")
+    end
+
+    if checkSpawn() then
+        print("checkSpawn")
         getNextOverride()
     end
-    
-    prevBossHealth = bossHealth
    
     if debugMode then gui.text(10, 30, numSolidSprites) end
-    memory.writebyte(0x55, numSolidSprites) -- Theoretically we need to wait until the thing spawns.
+    memory.writebyte(0x55, numSolidSprites) -- This must run every frame. The game overrides it with what it sees in the actual sprite data.
 end
 
 -- This is right when the bg_collision_check routine is called.
