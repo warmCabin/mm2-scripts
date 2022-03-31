@@ -79,21 +79,20 @@ local prevSpawn = false
 local function checkSpawn()
     for i = 0x1D, 0x1F do
         local flags = memory.readbyte(0x0420 + i)
-        if flags >= 0x80 then
-            local id = memory.readbyte(0x0400 + i)
-            if id == 0x6A then
-                -- the half blocks and the full blocks are both 6A in different states.
-                -- They use the timer to control movement speed, I think.
-                -- boss timer (B2) is used to store which-th picoblock we're on. Could reuse this as oIndex.
-                if bit.band(flags, 8) == 8 then
-                    if not prevSpawn then
-                        --print("One spawned!")
-                        prevSpawn = true
-                        return true
-                    else
-                        return false
-                    end
-                end
+        local id = memory.readbyte(0x0400 + i)
+        if bit.band(flags, 0x88) == 0x88 and id == 0x6A then
+            -- 80 = alive, 8 = invincible. 6A = picoblock id.
+            -- The half blocks and full/assembled blocks are both id 6A in different states.
+            -- We can check the invincibility flag to quickly determine which one.
+            -- These guys use their timers to determine movement speed, I think.
+            -- Boss timer ($B2) is used to store which block in the sequence we're on. Could be reused as oIndex.
+            -- $04E1, the sprite slot 1 timer, is used to determine when to spawn the next block.
+            if not prevSpawn then
+                --print("One spawned!")
+                prevSpawn = true
+                return true
+            else
+                return false
             end
         end
     end
