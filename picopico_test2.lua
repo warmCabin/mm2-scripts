@@ -52,12 +52,10 @@ local function getNextOverride()
         yMask = 0xF0
         yPos = oParam
     elseif oType == 2 then
-        -- Half-column thingy
-        -- TODO: What's the point? Just override the lower block.
-        --   I think it's so I only have to specify one byte of data.
+        -- One block on the lower row. Very bespoke!
         xMask = 0xF0
         xPos = oParam
-        yMask = 0xF0 -- could do 0xF0 and 0xC0 for yMask and yPos. was 0x80 and 0x80. Then the ymask could be hardcoded to save code space
+        yMask = 0xF0 -- Can be extracted from the branch to save codespace in the actual hack
         yPos = 0xC0  
     end
     
