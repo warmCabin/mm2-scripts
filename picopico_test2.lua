@@ -17,7 +17,7 @@ local oIndex = 0
 -- and doesn't affect the actual challenge at all.
 local overrideData = {1, 0x50, 1, 0x80, 1, 0xB0, 2, 0x60, 2, 0xA0, 1, 0x70, 0, 0, 2, 0x90, 2, 0x40, 1, 0xA0, 2, 0x50, 2, 0xB0, 1, 0x90, 2, 0x30}
                                                                         --  1, 0x30                                                                       
-local debugMode = true                                                                        
+local debugMode = false                                                                        
 
 local function mouseCheck()
     --memory.writebyte(0x4B, 1)
