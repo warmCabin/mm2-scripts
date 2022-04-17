@@ -40,7 +40,8 @@
 local forcedTileType = 1
 
 local prevJoy = {}
-local shouldForceTileType = arg == "--force-tile-type"
+local shouldForceTileType = arg:find("%-%-force%-tile%-type")
+local shouldDrawTable = arg:find("%-%-draw%-table")
 
 local function forceTileType()
     local joy = joypad.get(1)
@@ -77,8 +78,8 @@ local function main()
         local yPos = memory.readbyte(0x0670 + slot)
         local tileType = memory.readbyte(0x04F0 + slot)
         local screenNum = memory.readbyte(0x0440 + slot + 16) -- Don't ask
-        gui.text(10, i * 10 + 10, string.format("[%02X] %02X:%02X, %02X:%02X - %02X", slot, xMask, xPos, yMask, yPos, tileType))
         gui.text(screenNum * 256 + xPos - xScroll, yPos, string.format("%02X", slot))
+        if shouldDrawTable then gui.text(10, i * 10 + 10, string.format("[%02X] %02X:%02X, %02X:%02X - %02X", slot, xMask, xPos, yMask, yPos, tileType)) end
     end
 end
 emu.registerafter(main)
