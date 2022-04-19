@@ -59,13 +59,14 @@
 	corresponding to their sizes. Synaesthesia ftw!
 ]]
 
---Only interested in tracking the 4 weapon-controllable ones ($0592 - $0595).
---$0596 affects one of the Crash Bomb explosion particles, but $0596 - $059F
---pretty much stay at 0 forever. Change NUM_HITBOXES to 16 if you're curious!
+-- Only interested in tracking the 4 weapon-controllable ones ($0592 - $0595).
+-- $0596 affects one of the Crash Bomb explosion particles, but $0596 - $059F
+-- pretty much stay at 0 forever. Change NUM_HITBOXES to 16 if you're curious!
 local NUM_HITBOXES = 4
 
---synaesthesia for hitbox sizes. Redder = bigger.
---format: fill color, outline color
+-- Synaesthesia for hitbox sizes. Redder = bigger.
+-- format: fill color, outline color
+-- TODO: Instead of hit size colors, could color it based on collision flags. Also, only render on correct frames?
 local hitSizeColors = {
 {"#00FF0040","green"},
 {"#0000FF40","blue"},
@@ -74,7 +75,7 @@ local hitSizeColors = {
 {"#FF000040","red"}
 }
 setmetatable(hitSizeColors, {__index=function(t,k)
-	return {"#FFFFFF40", "white"} --all glitchy out-of-bounds hitboxes are drawn white.
+	return {"#FFFFFF40", "white"} -- All glitchy out-of-bounds hitboxes are drawn white.
 end})
 
 -- Originally written by finalfighter.
@@ -128,16 +129,16 @@ end
 local function postFrame()
 	
 	local hitboxTypes = {}
-	for i=1,NUM_HITBOXES do hitboxTypes[i] = memory.readbyte(0x592+i-1) end
+	for i = 1, NUM_HITBOXES do hitboxTypes[i] = memory.readbyte(0x592 + i - 1) end
 	
 	local str = ""
-	for i=1,#hitboxTypes do
-		str = str..hitboxTypes[i]..(i==NUM_HITBOXES and "" or " ")
+	for i = 1, #hitboxTypes do
+		str = str..hitboxTypes[i]..(i == NUM_HITBOXES and "" or " ")
 	end
 	
 	drawSpriteInfo()
 	
-	drawText(5,15,str,"white","0000FF80")
+	--drawText(5,15,str,"white","0000FF80")
 	
 end
 emu.registerafter(postFrame)
