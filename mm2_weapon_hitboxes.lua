@@ -63,15 +63,6 @@
 --$0596 affects one of the Crash Bomb explosion particles, but $0596 - $059F
 --pretty much stay at 0 forever. Change NUM_HITBOXES to 16 if you're curious!
 local NUM_HITBOXES = 4
-local EmuYFix = 0
-
-local function drawBox(x1,y1,x2,y2,c1,c2)
-	gui.box(x1, y1+EmuYFix, x2, y2+EmuYFix, c1, c2)
-end
-
-local function drawText(x,y,t,c1,c2)
-	gui.text(x, y+EmuYFix, t, c1, c2 )
-end
 
 --synaesthesia for hitbox sizes. Redder = bigger.
 --format: fill color, outline color
@@ -86,41 +77,50 @@ setmetatable(hitSizeColors, {__index=function(t,k)
 	return {"#FFFFFF40", "white"} --all glitchy out-of-bounds hitboxes are drawn white.
 end})
 
---Written by finalfighter.
---Variables renamed by me for clarity.
---I also removed the delay scroll tracking and
---HP/sprite timer stuff, and added two lines to draw the
---hitbox types at $059X. It's a lightweight hitbox function!
+-- Originally written by finalfighter.
+-- Variables renamed by me for clarity.
+-- I also removed the delay scroll tracking and
+-- added stuff for HP, sprite timers, and moving platforms.
+-- It's a lightweight hitbox function!
 local function drawSpriteInfo()
+	local cameraPos = memory.readbyte(0x20)*256+memory.readbyte(0x1F)
 
-	-- local weapon = memory.readbyte(0xA9)
-	-- if weapon ~= 8 then return end
+	for i = 0, 0x1F do
+        local x = memory.readbyte(0x0460 + i)
+		local y = memory.readbyte(0x04A0 + i)
+        local screenNum = memory.readbyte(0x0440 + i)
+        local drawX = screenNum * 256 + x - cameraPos
 
-	local scX = memory.readbyte(0x20)*256+memory.readbyte(0x1F)
-	local scY = 0
-
-	for i=0,0x1F do
-		local x = memory.readbyte(0x0440+i)*256+memory.readbyte(0x0460+i) - scX
-		local y = memory.readbyte(0x04A0+i)                               - scY
-
-		local flags = memory.readbyte(0x0420+i)
-		if flags>=0x80 then --sprite is alive
-		
-			if i<0x10 and i~=1 then --Rockman & projectiles
-				local propIndex = memory.readbyte(0x0590+i)           --weapon hitbox type (0-4)
-				local tmp = memory.readbyte(0xD4DC+propIndex)         --offset into property tables
-				local hitSizeX = memory.readbyte(0xD4E1+tmp)-0xC  + 4 --read from property tables
-				local hitSizeY = memory.readbyte(0xD581+tmp)-0x14 + 4
-				local bg,ol = hitSizeColors[propIndex+1][1],hitSizeColors[propIndex+1][2]
-				drawBox(x-hitSizeX, y-hitSizeY, x+hitSizeX, y+hitSizeY, bg, ol)
-				drawText(x-2,y-2,memory.readbyte(0x0590+i))
-			else --regular entities\\
-				local tmp = memory.readbyte(0x06E0+i)
-				local hitSizeX = math.max(0, memory.readbyte(0xD501+tmp) - 4 )
-				local hitSizeY = math.max(0, memory.readbyte(0xD5A1+tmp) - 4 )
-				drawBox(x-hitSizeX, y-hitSizeY, x+hitSizeX, y+hitSizeY, "#FFFFFF40", "white")
+		local flags = memory.readbyte(0x0420 + i)
+		if flags >= 0x80 then -- Sprite is alive
+			if i < 0x10 and i ~= 1 then -- Rockman & projectiles
+				local propIndex = memory.readbyte(0x0590 + i)             -- weapon hitbox type (0-4)
+				local tmp = memory.readbyte(0xD4DC + propIndex)           -- offset into property tables
+				local hitSizeX = memory.readbyte(0xD4E1 + tmp) - 0xC  + 4 -- read from property tables
+				local hitSizeY = memory.readbyte(0xD581 + tmp) - 0x14 + 4
+				local bg, ol = hitSizeColors[propIndex + 1][1], hitSizeColors[propIndex + 1][2]
+				gui.box(drawX - hitSizeX, y - hitSizeY, drawX + hitSizeX, y + hitSizeY, bg, ol)
+				-- gui.text(x - 2, y - 2, memory.readbyte(0x0590 + i))
+			else -- Enemies
+				local tmp = memory.readbyte(0x06E0 + i)
+				local hitSizeX = math.max(0, memory.readbyte(0xD501 + tmp) - 4 )
+				local hitSizeY = math.max(0, memory.readbyte(0xD5A1 + tmp) - 4 )
+				gui.box(drawX - hitSizeX, y - hitSizeY, drawX + hitSizeX, y + hitSizeY, "#FFFFFF40", "white")
+                
+                local platformSizeX = memory.readbyte(0x0150 + i)
+                local platformY = memory.readbyte(0x0160 + i)
+                if platformSizeX > 0 then
+                    -- This enemy is a platform
+                    gui.line(drawX - platformSizeX, platformY, drawX + platformSizeX, platformY, "red")
+                    local mmx = memory.readbyte(0x0440) * 256 + memory.readbyte(0x0460) - cameraPos
+                    local mmy = memory.readbyte(0x04A0)
+                    
+                    -- Draw Mega Man's detection point
+                    gui.line(mmx, mmy + 12, mmx, mmy)
+                    gui.box(mmx - 1, mmy + 12 - 1, mmx + 1, mmy + 12 + 1, "magenta")
+                    gui.pixel(mmx, mmy + 12, "blue")
+                end
 			end
-			
 		end
 	end
 end
