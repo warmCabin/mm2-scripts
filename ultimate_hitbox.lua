@@ -201,10 +201,22 @@ local function drawHitboxes(start, finish)
             
             if doSlots then
                 if i < 0x10 then
-                    gui.text(math.min(drawX, 240), y, string.format("%02X", i))
+                   -- This default draw could go for all 32 slots if I wasn't messing with itemId crap below
+                   gui.text(math.min(drawX, 240), y, string.format("%02X", i))
                 else
+                    -- Random crap that I was experimenting with
                     -- gui.text(math.min(drawX, 240), y, string.format("%02X: %02X", i, memory.readbyte(0xF0 + i))) -- levelID
-                    gui.text(math.min(drawX, 240), y, string.format("%02X: %02X", i, id)) -- sprite ID
+                    -- gui.text(math.min(drawX, 240), y, string.format("%02X: %02X, %d", i, id, memory.readbyte(0x93F0 + id))) -- sprite ID, special pause type
+                    local specialPauseType = memory.readbyte(0x93F0 + id)
+                    local itemId = memory.readbyte(0x0130 - 16 + i)
+                    if specialPauseType == 2 and itemId == 0xFF then
+                        -- Potential for despawn glitch. Or respawn glitch? Or just draw normal item guy.
+                        gui.text(math.min(drawX, 240), y, string.format("%02X:%02X", i, memory.readbyte(0x0120 - 16 + i)), "red") -- Draw state
+                    end
+                    if itemId ~= 0xFF then -- TODO: register this on the item_collision type callback?
+                        -- Draw normal item guy
+                        gui.text(math.min(drawX, 240), y, string.format("%02X:%02X,%02X", i, itemId, memory.readbyte(0x0120 - 16 + i))) -- Draw itemId, state
+                    end
                 end
             end
 		end
@@ -240,6 +252,8 @@ function shouldDrawPlatform(slot)
     -- Bosses use platform values for some other sinister purpose.
     -- Mega Man doesn't use it at all.
     if slot <= 1 then return false end
+    
+    -- TODO: Slot 2-4 logic from ugly_plat
     
     -- Is Item 1, 2, or 3 equipped
     return memory.readbyte(0xA9) >= 9
