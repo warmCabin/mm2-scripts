@@ -1,10 +1,8 @@
 --[[
-	Draws health values over the heads of everything that SHOULD have one. This script contains a big list of sprites
-    that should be excluded, like health pickups, spawners, bullets, etc.
+	Draws health values over the heads of everything that SHOULD have one. That determination is made by checking the sprite
+    flags and damage tables, plus a few hardcoded exceptions.
     
-    A lot of these values are reused. For instance, enemy #23 == Hothead, item #23 == buster shot. Splitting the tables
-    into enemies and items helped, but the bosses are just plain ornery. I'll need to check if we're in a boss room and
-    what stage we're in and use a different in each case.
+    Might make sense to absorb this functionality into ultimate_hitbox.
 ]]
 local EmuYFix = 0
 local drawHitboxes = false
@@ -29,136 +27,32 @@ local hitSizeColors = {
     {"#FF000040","red"}
 }
 setmetatable(hitSizeColors, {__index=function(t,k)
-	return {"#FFFFFF40", "white"} -- The default hitboxe color is white.
+	return {"#FFFFFF40", "white"} -- The default hitbox color is white.
 end})
 
--- Values like health pickups and smoke puffs that should not have health bars.
--- It seems like bosses reuse sprite IDs among each other and even some normal enemies for their bullets and bodies.
--- This exclusion table might need to go stage by stage and check if you're in a boss fight...
--- Could use this existing one for general, outside gameplay.
-local enemy_exclude = {}
-enemy_exclude[0x7B] = true
-enemy_exclude[0x21] = true
-enemy_exclude[0x15] = true
-enemy_exclude[0x7A] = true
-enemy_exclude[0x78] = true -- ???/Hologram machine
-enemy_exclude[0x26] = true
-enemy_exclude[0x79] = true
-enemy_exclude[0x76] = true
-enemy_exclude[0x06] = true
-enemy_exclude[0x25] = true
-enemy_exclude[0x14] = true
-enemy_exclude[0x28] = true
-enemy_exclude[0x27] = true
-enemy_exclude[0x2F] = true
-enemy_exclude[0x59] = true
-enemy_exclude[0x60] = true -- Bubble Man when health ticks up???
-enemy_exclude[0x30] = true
-enemy_exclude[0x52] = true -- ??? Heatman when charging?
-enemy_exclude[0x47] = true
-enemy_exclude[0x32] = true -- Telly body
-enemy_exclude[0x33] = true -- Telly collapsing parts
-enemy_exclude[0x5C] = true -- Metal Man's blades
-enemy_exclude[0x13] = true -- Dropping platforms
-enemy_exclude[0x0E] = true -- air bubble (not to be confused with Bubble Lead or Air Shooter)
-enemy_exclude[0x10] = true -- Anko body
-enemy_exclude[0x02] = true -- Shrimp spawner
-enemy_exclude[0x03] = true -- Metroid spawner
-enemy_exclude[0x07] = true -- Crab spawner
-enemy_exclude[0x5A] = true -- Bubbleman's bullet
-enemy_exclude[0x5B] = true -- Bubbleman's Bubble Lead
-enemy_exclude[0x4D] = true -- Shotman shot
-enemy_exclude[0x2B] = true -- Prop-top spawner
-enemy_exclude[0x53] = true -- Yoku block - 1
-enemy_exclude[0x54] = true -- Yoku block - 2
-enemy_exclude[0x55] = true -- Yoku block - 3
-enemy_exclude[0x58] = true -- Heatman's flame shot
-enemy_exclude[0x40] = true -- Air Tiki
-enemy_exclude[0x41] = true -- Air Tiki #2?
-enemy_exclude[0x44] = true -- Air Tiki hor
-enemy_exclude[0x3E] = true -- Lightning Lord cloud
--- enemy_exclude[0x37] = true -- Pipi spawner
-enemy_exclude[0x42] = true -- Msyerious 1-frame apparition in Airman
-enemy_exclude[0x43] = true -- Msyerious 1-frame apparition in Airman
-enemy_exclude[0x5D] = true -- Airman's tornadoes
-enemy_exclude[0x18] = true -- Rabbit projectile (It's not a carrot!)
-enemy_exclude[0x1B] = true -- Friender fireball
-enemy_exclude[0x2E] = true -- Friender body part
-enemy_exclude[0x1A] = true -- Friender tail
-enemy_exclude[0x1C] = true -- Friender face
-enemy_exclude[0x1E] = true -- Rooster spawner
-enemy_exclude[0x61] = true -- Woodman's Leaf Shield
-enemy_exclude[0x62] = true -- Woodman's falling leaves
-enemy_exclude[0x77] = true -- Small health pickup/Alien (wtf)
-enemy_exclude[0x3F] = true -- Lightning bolt
-enemy_exclude[0x35] = true -- Met/Sniper Joe bullet
-enemy_exclude[0x56] = true -- Wily Machine body/Mysterious 1-frame apparition in Crashman's stage
-enemy_exclude[0x5E] = true -- Crash Bomb
-enemy_exclude[0x5F] = true -- Crash Bomb explosion
-enemy_exclude[0x12] = true -- Moving platform (Crash/Wily 4)
-enemy_exclude[0x63] = true -- Wily 1 moving blocks / Guts tank treads
-enemy_exclude[0x64] = true -- Wily 1 moving block spawner
-enemy_exclude[0x65] = true -- Mecha Dragon body
-enemy_exclude[0x66] = true -- Mecha Dragon tail
-enemy_exclude[0x69] = true -- Guts Tank fist
-enemy_exclude[0x67] = true -- Guts tank arm
-enemy_exclude[0x6E] = true -- Boobeam bullet
-enemy_exclude[0x7C] = true -- Refight teleporter entrance
-enemy_exclude[0x7D] = true -- Refight teleporter exit
-enemy_exclude[0x7E] = true -- Refight teleporter to Wily Machine
-enemy_exclude[0x6B] = true -- Wily Machine projectile
-enemy_exclude[0x6C] = true -- Wily Machine debris
-enemy_exclude[0x74] = true -- Wily Machine capsule (as he escapes)/Blood drop
-enemy_exclude[0x72] = true -- Blood dropper - 1
-enemy_exclude[0x73] = true -- Blood dropper - 2
-enemy_exclude[0x70] = true -- Star
-enemy_exclude[0x6F] = true -- Alien bullet
-enemy_exclude[0x24] = true -- Changkey
-
--- Some IDs are reused between Mega Man/projectiles and enemies
-local item_exclude = {}
-item_exclude[0x23] = true -- Buster shots
-item_exclude[0x24] = true -- Little damage accents
-item_exclude[0x34] = true -- Quick boomerangs
-item_exclude[0x36] = true -- Metal blades
-item_exclude[0x3F] = true -- Water splash
-item_exclude[0x25] = true -- Mega Man explosions
-item_exclude[0x3C] = true -- Dinked Quick boomerang
-item_exclude[0x3A] = true -- Item 3
-item_exclude[0x33] = true -- Bubble Lead
-item_exclude[0x38] = true -- Item 1
-item_exclude[0x39] = true -- Item 2
-item_exclude[0x30] = true -- Atomic fireball
-item_exclude[0x37] = true -- Time Stopper manager
-item_exclude[0x31] = true -- Air Shooter
-item_exclude[0x3D] = true -- Dinked Air Shooter
-item_exclude[0x35] = true -- Crash Bomb
-item_exclude[0x2F] = true -- Crash Bomb explosion
-item_exclude[0x32] = true -- Leaf Shield
-item_exclude[0x74] = true -- Wily Capsule in Alien fight
-item_exclude[0x79] = true -- Wily operating hologram machine
-item_exclude[0x7C] = true -- Disco ball
-item_exclude[0x3B] = true -- Dinked Leaf Shield
-
-if arg == "-hitboxes" then
+if arg == "--hitboxes" then
     drawHitboxes = true
 end
 
-local mem = {}
-local readbyte = memory.readbyte
 
---[[
-function memory.readbyte(addr)
-    --print("hello")
-    local ret = mem[addr] or readbyte(addr)
-    mem[addr] = readbyte(addr)
-    return ret
-end --]]
+-- Enemies that are known to toggle their invincibility or tangibility flags in a way that would confuse the normal rules.
+local enemy_whitelist = {}
+enemy_whitelist[0x16] = true -- Batton
+enemy_whitelist[0x31] = true -- Blocky face
+enemy_whitelist[0x34] = true -- Met
+enemy_whitelist[0x3A] = false -- Pipi egg. Not sure about this one.
+enemy_whitelist[0x4F] = true -- Sniper Joe
+enemy_whitelist[0x6A] = false -- Pico block. Not sure about this one, either.
 
--- Written by finalfighter.
--- Variables renamed by me for clarity.
--- I also removed the delay scroll tracking and
--- HP/sprite timer stuff, and added the bit that draws health values.
+-- Cutscene objects in boss fights. We can't rely on our usual flags to tell us this.
+local boss_blacklist = {}
+boss_blacklist[0x74] = true -- Wily Machine after you kill him and when it spawns the alien. This also picks up the blood drips in Wily 6.
+boss_blacklist[0x78] = true -- Hologram shooty machine
+boss_blacklist[0x79] = true -- Wily operating the hologram machine
+boss_blacklist[0x7A] = true -- Wily jumping
+boss_blacklist[0x7B] = true -- Wily begging for mercy
+
+-- Initial hitbox reverse engineering work was done by finalfighter.
 local function drawSpriteInfo()
 	local scX = memory.readbyte(0x20) * 256 + memory.readbyte(0x1F)
 	local scY = 0
@@ -185,8 +79,8 @@ local function drawSpriteInfo()
                     drawBox(x - hitSizeX, y - hitSizeY, x + hitSizeX, y + hitSizeY, bg, ol)
                 end
                 
-                if drawTypes then drawText(x, y, string.format("t=%02X", index)) end
-                if drawHealth and not item_exclude[index] then
+                if drawTypes then drawText(x, y, string.format("t=%02X,s=%02X,f=%02X", index, i, flags)) end
+                if drawHealth and i == 0 then
 				    drawText(x - 5, y - hitSizeY - 9, string.format("%02d", health))
                 end
 			else -- regular entities
@@ -198,8 +92,8 @@ local function drawSpriteInfo()
                     drawBox(x - hitSizeX, y - hitSizeY, x + hitSizeX, y + hitSizeY, "#FFFFFF40", "white")
                 end
                 
-                if drawTypes then drawText(x, y, string.format("t=%02X", index)) end
-                if drawHealth and not enemy_exclude[index] then
+                if drawTypes then drawText(x, y, string.format("t=%02X,s=%02X,f=%02X", index, i, flags)) end
+                if shouldDrawHealth(i, flags, index) then
                     drawText(x - 5, y - hitSizeY - 9, health)
                 end
 			end
@@ -207,7 +101,67 @@ local function drawSpriteInfo()
 	end
 end
 
-local function postFrame()
+function shouldDrawHealth(slot, flags, spriteType)
+    if not drawHealth then return false end
+    
+    if slot == 1 then
+        -- Check for boss cutscene objects
+        return not boss_blacklist[spriteType]
+    else
+        -- Of invincibility and hurtbox, just hurtbox is active. Most invincible enemies are going to stay that way.
+        -- enemy_whitelist documents the exceptions--that is, enemies that are known to toggle their invincibility.
+        return enemy_whitelist[spriteType] or bit.band(flags, 0x0A) == 2 and not effectivelyInvincible(spriteType)
+    end
+    
+end
+
+function effectivelyInvincible(spriteType)
+    local dmgTable = reverseDamageTable(spriteType)
+    
+    for i = 0, 8 do
+        if dmgTable[i] ~= 0 and dmgTable[i] < 0x80 then return false end
+    end
+    
+    return true
+end
+
+--[[    
+    damge callback ptrs: $E964, $E96E
+    
+    P: E64F -> E976
+    H: E6A4 -> E9F2
+    A: E70D -> EA6A
+    W: E766 -> EAE2
+    B: E7CC -> EB5A
+    Q: E825 -> EBD2
+    F: E964 (junk/padding, = to original ptr table. Time Stopper doesn't actually damage enemies. Would be a crazy undefined opcode.)
+    M: E8FD -> ECC2
+    C: E899 -> EC4A
+    
+    All of them are 0x78 long, except for P, which is 0x7C long, for some reason.
+]]
+
+local dmgTables = {0xE9F2, 0xEA6A, 0xEAE2, 0xEB5A, 0xEBD2, 0xFFFF, 0xECC2, 0xEC4A}
+dmgTables[0] = 0xE976 -- Lua moment
+
+function reverseDamageTable(spriteType)
+    local ret = {}
+    
+    for i = 0, 8 do (function()
+        -- Time Stopper doesn't have a damage table.
+        if i == 6 then
+            ret[i] = 0
+            return -- continue
+        end
+        
+        local baseDmgTable = dmgTables[i]
+        ret[i] = memory.readbyte(baseDmgTable + spriteType)
+    end)() end
+    
+    return ret
+end
+
+local function callback()
 	drawSpriteInfo()
 end
-emu.registerafter(postFrame)
+emu.registerbefore(callback)
