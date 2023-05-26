@@ -1,13 +1,27 @@
 
+-- Whether to register the callbacks before or after the frame.
+-- BEFORE essentially generates one frame of lag to sync the hitboxes with the visibile graphics, as opposed to
+-- a more accurate "current state of RAM" view provided by AFTER.
 local drawBefore = true
+-- Whether to draw standard hitboxes (sprite on sprite action)
 local doHitboxes = true
+-- Whether to draw "solid" sprites that override level collision data, like yoku blocks and crash walls.
 local doSolidSprites = true
+-- Whether to show BG collision check dots.
+-- The game code is more loosey goosey with these compared to the other collisions types, so it was easiest to
+-- implement this by adding callbacks around the BG collision check routine.
 local doBgCheck = false
+-- Whether to show "glitchboxes" for the infamous damage transfer glitch that comes in handy during the Wily 4 fight.
 local doDamageTransfer = false
+-- Whether to spew some interesting numbers on screen beyond just the boxes.
 local doHud = false
+-- Whether to draw each sprite's slot number above it.
 local doSlots = false
 
+-- Whether to fudge the moving platform visualizations to match Mega Man's hitbox width.
+-- I will probably make this true forever and remove this flag.
 local platformLineMode = true
+-- Whether to draw white boxes for sprite slots that are flagged as intangible, or skip them altogether.
 local drawIntangible = false
 -- Collision for Mega Man's projectiles is only checked every other frame. Even slots on odd frames, odd slots on even frames.
 -- This flag controls whether we should visualize that effect or always draw the boxes.
