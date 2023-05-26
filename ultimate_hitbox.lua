@@ -9,7 +9,14 @@ local doSlots = false
 
 local platformLineMode = true
 local drawIntangible = false
-local quantumShots = false -- TODO: Use this to only draw hitboxes that will actually collide this frame. Not sure how this interacts with NMI/frameCount variable.
+-- Collision for Mega Man's projectiles is only checked every other frame. Even slots on odd frames, odd slots on even frames.
+-- This flag controls whether we should visualize that effect or always draw the boxes.
+-- Most players won't notice the difference at full speed.
+-- When we deliberately fire a shot to manipulate slot/frame parity, we call that a quantum shot.
+local doQuantumShots = false
+-- The game maintains its own screen X position for projectiles, but it's a little bit buggy. Most noticeably, the hitbox X positions
+-- lag 1 frame behind the actual X positions. Most players will probably prefer this false.
+local useRealDrawX = false
 
 local HITBOX_OFFSET_TABLE = 0xD4DC
 local HIT_SIZE_X_TABLE = 0xD4E1
@@ -57,10 +64,17 @@ local function drawHitboxes(start, finish)
 		local y = memory.readbyte(0x04A0 + i)
         local screenNum = memory.readbyte(0x0440 + i)
         
-        local drawX = screenNum * 256 + x - cameraPos
+        local drawX
         local hitSizeX, hitSizeY
         local platformSizeX, platformY
         local bg, ol
+        
+        -- The game actually maintains its own "drawX", but it's 1 frame stale plus one or two other bugs.
+        if useRealDrawX and i < 0x10 and i > 1 then
+            drawX = memory.readbyte(0x06E0 + i)
+        else
+            drawX = screenNum * 256 + x - cameraPos
+        end
 
         local id = memory.readbyte(0x0400 + i)
 		local flags = memory.readbyte(0x0420 + i)
@@ -75,6 +89,11 @@ local function drawHitboxes(start, finish)
             Finalfighter's original code (which this was copied from long ago) handles this quite elegantly. It adds some constants to the stored delta values
             to come up with reasonable looking absolute box sizes. I'm not sure whether you could solve a system of equations to determine these values emperically,
             or whether you have to take some artistic license.
+            
+            TODO: It's possible for a hitbox to live and die within a single frame, never getting picked up by any of this code. An obvious solution would be to
+              register all this junk on a callback just before collisions are checked, but then enemy sprites won't have updated yet, so we'll be all out of sync.
+              Best approach is to register a callback on 0x925B that buffers all 16 projectile flag values, and have this routine read those instead of straight from
+              NES RAM.
         ]]
         
 		if bit.band(flags, 0x80) ~= 0 then -- Sprite is alive
@@ -194,6 +213,12 @@ end
 
 function shouldDrawBox(slot, flags)
     if slot == 0 then return memory.readbyte(0xF9) == 0 end
+    
+    -- TODO: store a frameCount var
+    -- TODO: I'm not sure whether it should be == or ~= for the modulo. Obviously this is an important distinction to get right.
+    if doQuantumShots and slot >= 2 and slot <= 9 and slot % 2 ~= memory.readbyte(0x1C) % 2 then
+        return false
+    end
     
     if drawIntangible then return true end
     
@@ -447,3 +472,4 @@ if drawBefore then
 else
     emu.registerafter(postFrame)
 end
+-- memory.registerexec(0x925B, postFrame)
