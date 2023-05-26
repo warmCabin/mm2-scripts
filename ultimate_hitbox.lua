@@ -164,6 +164,20 @@ local function drawHitboxes(start, finish)
                     gui.box(drawX - hitSizeX + 1, y - hitSizeY + 1, drawX + hitSizeX - 1, y + hitSizeY - 1, "clear", "#FFEF00") 
                     -- gui.box(drawX - hitSizeX + 1, y - hitSizeY + 1, drawX + hitSizeX - 1, y + hitSizeY - 1, "clear", "#E0B0FF") 
                 end
+                
+            end
+            
+            -- Quick lasers. They do some custom collision logic that extends a hitbox to the edge of the screen and kills you instantly.
+            -- The hitbox flag is lost when the tip sprite hits the edge of the screen (because it unloads via a right shift to the flags),
+            -- so this should always be run if alive.
+            if i >= 0x10 and id == 0x15 then -- Mega = 6 x 8
+                if bit.band(flags, 0x40) ~= 0 then
+                    -- FACING right, so CHECK to the left.
+                    gui.box(0, y - 8, drawX - 8, y + 8, "#FF000040", "red")
+                else
+                    -- FACING left, so CHECK to the right.
+                    gui.box(drawX + 8, y - 8, 0xFF, y + 8, "#FF000040", "red")
+                end
             end
             
             if doSlots then
