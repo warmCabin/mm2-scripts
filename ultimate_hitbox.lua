@@ -11,6 +11,38 @@ local platformLineMode = true
 local drawIntangible = false
 local quantumShots = false -- TODO: Use this to only draw hitboxes that will actually collide this frame. Not sure how this interacts with NMI/frameCount variable.
 
+local HITBOX_OFFSET_TABLE = 0xD4DC
+local HIT_SIZE_X_TABLE = 0xD4E1
+local HIT_SIZE_Y_TABLE = 0xD581
+local ENEMY_HIT_SIZE_X_TABLE = 0xD501 -- These two don't acually make sense. It's based on an old misunderstanding that I need to factor out.
+local ENEMY_HIT_SIZE_Y_TABLE = 0xD5A1
+
+local function getBaseRom()
+    -- A random byte from the wait_for_next_frame routine,
+    -- which happens to be the low byte of the read_controllers routine address.
+    -- This is the first byte in bank F that diverges between Rockman 2 and Mega Man 2.
+    local sentinel = memory.readbyte(0xC093)
+    
+    if sentinel == 0xD4 then
+        return "rm2"
+    elseif sentinel == 0xD7 then
+        return "mm2"
+    end
+end
+
+if getBaseRom() == "mm2" then
+    -- Only +3. Can ya believe it?
+    print("You are playing Mega Man 2.")
+    HITBOX_OFFSET_TABLE = HITBOX_OFFSET_TABLE + 3
+    HIT_SIZE_X_TABLE = HIT_SIZE_X_TABLE + 3
+    HIT_SIZE_Y_TABLE = HIT_SIZE_Y_TABLE + 3
+    ENEMY_HIT_SIZE_X_TABLE = ENEMY_HIT_SIZE_X_TABLE + 3
+    ENEMY_HIT_SIZE_Y_TABLE = ENEMY_HIT_SIZE_Y_TABLE + 3
+else
+    print("You are playing Rockman 2.")
+end
+
+
 -- Sprite on sprite action
 
 local function drawHitboxes(start, finish)
@@ -48,22 +80,22 @@ local function drawHitboxes(start, finish)
 		if bit.band(flags, 0x80) ~= 0 then -- Sprite is alive
 			if i < 0x10 and i ~= 1 then -- Rockman & projectiles
 				local hitboxType = memory.readbyte(0x0590 + i)
-				local hitboxOffset = memory.readbyte(0xD4DC + hitboxType) -- Could just do hitboxType << 5
-				hitSizeX = memory.readbyte(0xD4E1 + hitboxOffset) - 0xC  + 4
-				hitSizeY = memory.readbyte(0xD581 + hitboxOffset) - 0x14 + 4
+				local hitboxOffset = memory.readbyte(HITBOX_OFFSET_TABLE + hitboxType) -- Could just do hitboxType << 5
+				hitSizeX = memory.readbyte(HIT_SIZE_X_TABLE + hitboxOffset) - 0xC  + 4
+				hitSizeY = memory.readbyte(HIT_SIZE_Y_TABLE + hitboxOffset) - 0x14 + 4
                 platformSizeX = memory.readbyte(0x05A0 + i - 2) -- There are just 3 of these, not 1 per sprite slot.
                 platformY = memory.readbyte(0x05A3 + i - 2)
 			else -- Enemies
 				local hitboxType = memory.readbyte(0x06E0 + i)
 				--hitSizeX = math.max(0, memory.readbyte(0xD501 + hitboxType) - 4 )
 				--hitSizeY = math.max(0, memory.readbyte(0xD5A1 + hitboxType) - 4 )
-                hitSizeX = memory.readbyte(0xD501 + hitboxType) - 4
-				hitSizeY = memory.readbyte(0xD5A1 + hitboxType) - 4
+                -- TODO: finalfighter is using 32 bytes down from the actual base of the table. Fix this to use the actual base and a different subtrahend.
+                -- Yes, really. Subtrahend. X would always be 2 more (except box type 15), and Y would always be 4 more, so...
+                hitSizeX = memory.readbyte(ENEMY_HIT_SIZE_X_TABLE + hitboxType) - 4
+				hitSizeY = memory.readbyte(ENEMY_HIT_SIZE_Y_TABLE + hitboxType) - 4
                 platformSizeX = memory.readbyte(0x0150 + i)
                 platformY = memory.readbyte(0x0160 + i)
 			end
-            
-            print(string.format("slot %02X - %02X x %02X", i, hitSizeX, hitSizeY))
             
             -- TODO: In game, these checks don't care if the sprite is alive.
             --   This can be observed when a pipi despawns one of those Bubble platforms.
