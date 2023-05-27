@@ -132,8 +132,6 @@ local function drawHitboxes(start, finish)
             
             -- TODO: In game, these checks don't care if the sprite is alive.
             --   This can be observed when a pipi despawns one of those Bubble platforms.
-            --   They also incorrectly use sprite Y instead of platform Y at one point ($0E:8D39), so there's an extra line to be drawn.
-            --   ("Incorrectly," or is this intended behavior to get a range of valid pop-up values?)
             --   Again we face the question. Should this script support glitches, or regular cases only?
             if platformSizeX > 0 and shouldDrawPlatform(i) then
                 -- This enemy is a platform
@@ -141,8 +139,19 @@ local function drawHitboxes(start, finish)
                 local mmx = memory.readbyte(0x0440) * 256 + memory.readbyte(0x0460) - cameraPos
                 local mmy = memory.readbyte(0x04A0)
                 
+                -- Moving platform logic operates in screen space, so make sure it always draws
+                local drawX = bit.band(drawX, 0xFF)
+                
                 if platformLineMode then -- Intuitive collision line
+                    
+                    -- If Mega Man is above the sprite's center point, he'll snap up to the platform height.
+                    -- This difference is most noticeable on Item 3 and the falling platforms in Bubble.
+                    if y >= platformY then 
+                        gui.box(drawX - platformSizeX + 1 + 7, platformY, drawX + platformSizeX - 1 - 7, y)
+                    end
+                
                     gui.line(drawX - platformSizeX + 1 + 7, platformY, drawX + platformSizeX - 1 - 7, platformY, "red")
+                    gui.line(drawX - platformSizeX + 1 + 7, y, drawX + platformSizeX - 1 - 7, y, "blue")
                     
                     if shouldDrawBox(0, 0) then
                         -- Draw fake detection line
@@ -151,6 +160,7 @@ local function drawHitboxes(start, finish)
                     end
                 else -- What the game actually does.
                     gui.line(drawX - platformSizeX + 1, platformY, drawX + platformSizeX - 1, platformY, "red")
+                    -- TODO: ghost platform box
                     
                     if shouldDrawBox(0, 0) then
                         -- Draw Mega Man's detection point
@@ -187,6 +197,7 @@ local function drawHitboxes(start, finish)
                 
                 -- Draw an inner border if invincible. I was considering an alternate palette of "#FFEF0040","#FFEF00".
                 -- Could just replace the regular border color.
+                -- TODO: Include that neat "effectively invincible" logic in this from mm2_enemy_health?
                 if bit.band(flags, 0x8) ~= 0 then
                     gui.box(drawX - hitSizeX + 1, y - hitSizeY + 1, drawX + hitSizeX - 1, y + hitSizeY - 1, "clear", "white")
                 end
