@@ -34,19 +34,22 @@ if arg == "--hitboxes" then
     drawHitboxes = true
 end
 
+--[[
+    Behaviors I don't like:
+      Pipi eggs become tangible and display health only when dropped (idk, I kinda like this as is).
+      Each picoblock (6A) shows its health during the merge sequence. Same sprite ID as standard vulnerable sprite.
+      Crash walls have a health bar. I mean, that IS how they're implemented, but...
+      
+    Might need to make special override functions per sprite type or something. That would be neat!
+]]
 
--- Enemies that are known to toggle their invincibility or tangibility flags in a way that would confuse the normal rules.
+-- Enemies that are known to toggle their flags in a way that would confuse the normal rules.
 local enemy_whitelist = {}
-enemy_whitelist[0x16] = true -- Batton
-enemy_whitelist[0x31] = true -- Blocky face
-enemy_whitelist[0x34] = true -- Met
 enemy_whitelist[0x3A] = false -- Pipi egg. Not sure about this one.
-enemy_whitelist[0x4F] = true -- Sniper Joe
-enemy_whitelist[0x6A] = false -- Pico block. Not sure about this one, either.
 
 -- Cutscene objects in boss fights. We can't rely on our usual flags to tell us this.
 local boss_blacklist = {}
-boss_blacklist[0x74] = true -- Wily Machine after you kill him and when it spawns the alien. This also picks up the blood drips in Wily 6.
+boss_blacklist[0x74] = true -- Wily Machine after you kill him and when it spawns the alien.
 boss_blacklist[0x78] = true -- Hologram shooty machine
 boss_blacklist[0x79] = true -- Wily operating the hologram machine
 boss_blacklist[0x7A] = true -- Wily jumping
@@ -108,9 +111,20 @@ function shouldDrawHealth(slot, flags, spriteType)
         -- Check for boss cutscene objects
         return not boss_blacklist[spriteType]
     else
-        -- Of invincibility and hurtbox, just hurtbox is active. Most invincible enemies are going to stay that way.
-        -- enemy_whitelist documents the exceptions--that is, enemies that are known to toggle their invincibility.
-        return enemy_whitelist[spriteType] or bit.band(flags, 0x0A) == 2 and not effectivelyInvincible(spriteType)
+        --[[
+            Regular enemies.
+
+            Of invisibility and hurtbox, just hurtbox should be active. Most invisible enemies are already intangible (e.g. spawners),
+            but a few use it to sort of lurk off screen (e.g. Wood Man's monkeys), and I'd like to maintain that illusion with this HUD.
+            
+            Most invincible obstacle type enemies (e.g. crushers) don't actually use the invincibility flag; rather, the damage table says they take
+            0 damage from all weapons. Meanwhile, the invincibility flag is mainly used by enemies with a "defense mode" (e.g. Mets), and I want those
+            guys to have a persistent health bar. Therefore, the damage tables are the best indicator of whether something is permanently invincible,
+            and that's what effectivelyInvincible checks.
+            
+            enemy_whitelist documents the exceptions that defy these rules. Although with the latest refined ruleset...there aren't any!
+        ]]
+        return enemy_whitelist[spriteType] or bit.band(flags, 0x022) == 2 and not effectivelyInvincible(spriteType)
     end
     
 end
@@ -119,13 +133,19 @@ function effectivelyInvincible(spriteType)
     local dmgTable = reverseDamageTable(spriteType)
     
     for i = 0, 8 do
-        if dmgTable[i] ~= 0 and dmgTable[i] < 0x80 then return false end
+        if dmgTable[i] ~= 0 then return false end
     end
     
     return true
 end
 
 --[[    
+    The damage tables for each weapon are laid out back to back, but it's not really a standardized 2D array type of thing.
+    Each weapon has a callback with custom logic, so you have to check each one and see what data it's using.
+    Btw, that's how Atomic Fire is able to use the Buster table for small/medium shots, and a unique table for the [big shots].
+    
+    Here's the address for each callback routine and the corresponding table it uses.
+    
     damge callback ptrs: $E964, $E96E
     
     P: E64F -> E976
