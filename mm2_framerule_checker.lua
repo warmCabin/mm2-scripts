@@ -72,6 +72,19 @@ local function getRule5Color(frameCount)
     return (diff >= 0 and diff < 4 and frameCount % 4 == 0) and "red" or "white"
 end
 
+-- It's not possible to load a font into the FCEUX Lua context, so here you go.
+local function guiTextUniwidth(x, y, text, fg, bg)
+    local fceuxBlue = "#000080" -- BLEUX?
+    local charWidth = 5
+    local charHeight = 6
+    gui.box(x, y - 1, x + charWidth * (#text - 1), y + charHeight + 1, bg or fceuxBlue, bg or fceuxBlue)
+    for i = 1, #text do
+        local drawX = x + charWidth * (i - 1)
+        if text:sub(i, i) == "|" then drawX = drawX + 1 end -- Yes, I really am this picky.
+        gui.text(drawX, y, text:sub(i, i), fg, bg)
+    end
+end
+
 local function main()
 
     -- This check is time-sensitive, and gets very confused when you load savestates.
@@ -97,10 +110,10 @@ local function main()
     local color16 = checkFrame16 == emu.framecount() and "red" or "white" -- Boss health hit 0
     local color5 = getRule5Color(frameCount) -- First framerule after checkFrame4
     
-	gui.text(0, 10, rule16, color16)
-	gui.text(0, 20, rule8, color8)
-	gui.text(0, 30, rule4, color4)
-    gui.text(0, 40, rule5, color5)
+    guiTextUniwidth(0, 10, rule16, color16)
+	guiTextUniwidth(0, 20, rule8, color8)
+	guiTextUniwidth(0, 30, rule4, color4)
+    guiTextUniwidth(0, 40, rule5, color5)
     
     if color4 == "red" then print(rule4) end
     if color8 == "red" then print(rule8) end
