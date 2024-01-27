@@ -49,7 +49,7 @@ STAGE_TILE_TYPES = 0xCC44
 TSA_PROPERTIES_START = 0x10
 TSA_PROPERTIES_SIZE = 0x500
 MAP_START = 0x510
-MAP_SIZE = 0x4000
+MAP_SIZE = 0x4000 -- This is really just the size of the MMC1 bank. I don't believe the whole bank is taken up by level data.
 
 local tile_colors = {
     "#0000FF77", -- Ground
@@ -68,6 +68,14 @@ function getBlockAt(stage, screen, x, y)
     local stage_start = stage * MAP_SIZE + MAP_START
     local screen_start = stage_start + MACRO_COLS * MACRO_ROWS * screen
     local address = screen_start + x * MACRO_ROWS + y
+    -- Emulate what happens for reads past the end of the bank. Only relevant to the rare glitch scenario known as DCBSC.
+    -- Since we're reading directly from the ROM file, this would spill over into the NEXT bank.
+    -- But when memory mapped ($8000-$BFFF), it will always spill over into bank F (fixed at $C000-$FFFF)
+    -- This fiddly bit of math emulates that behavior.
+    -- Note that any byte is a valid block index, so we don't have to emulate this bank shenanigan in any other context.
+    if address >= (stage + 1) * MAP_SIZE then
+        address = address + (0xE - stage) * MAP_SIZE
+    end
     return rom.readbyte(address)
 end
 
@@ -126,6 +134,9 @@ function getTileAt(stage, screen, x, y) -- TODO: the stage param is normalized t
 end
 
 function getScreenMap(stage, screen)
+    -- Clamp screen to one byte.
+    screen = bit.band(screen, 0xFF)
+    
     local map = {}
     local i, j, x, y, tile
     for i = 1,NUM_ROWS do
