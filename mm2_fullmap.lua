@@ -59,6 +59,7 @@ local tile_colors = {
     "#cc000077", -- Right conveyor
     "#ffbf0077", -- Left Conveyor,
     "#f0f8ff77", -- Ice
+    "#80808077", -- Door
 }
 
 -- Functions to drill down into the level data, by Rafael Pinto. They read directly from the ROM rather than deal with MMC1 bank shenanigans.
