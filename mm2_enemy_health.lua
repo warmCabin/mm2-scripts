@@ -83,7 +83,7 @@ local function drawSpriteInfo()
                 end
                 
                 if drawTypes then drawText(x, y, string.format("t=%02X,s=%02X,f=%02X", index, i, flags)) end
-                if drawHealth and i == 0 then
+                if drawHealth and i == 0 and memory.readbyte(0xF9) == 0 then
 				    drawText(x - 5, y - hitSizeY - 9, string.format("%02d", health))
                 end
 			else -- regular entities
