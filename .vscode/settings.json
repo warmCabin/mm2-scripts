@@ -1,0 +1,10 @@
+{
+    "explorer.sortOrder": "modified",
+    "Lua.diagnostics.disable": [
+        "trailing-space",
+        "lowercase-global"
+    ],
+    "Lua.workspace.library": [
+        ".vscode/addons"
+    ]
+}
